@@ -7,6 +7,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 const Dashboard = lazy(() => import('./Dashboard.jsx'));
 const StudentManagement = lazy(() => import('./Students.jsx'));
+const TeacherManagement = lazy(() => import('./Teachers.jsx'));
 const AttendanceManagement = lazy(() => import('./Attendence.jsx'));
 const TimetableManagement = lazy(() => import('./Timetable.jsx'));
 const FeeManagement = lazy(() => import('./Fees.jsx'));
@@ -21,6 +22,7 @@ const ERP = () => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'students', label: 'Students', icon: Users },
+    { id: 'teachers', label: 'Teachers', icon: Users },
     { id: 'attendance', label: 'Attendance', icon: Calendar },
     { id: 'timetable', label: 'Timetable', icon: BookOpen },
     { id: 'fees', label: 'Fee Management', icon: CreditCard },
@@ -34,6 +36,8 @@ const ERP = () => {
         return <Dashboard />;
       case 'students':
         return <StudentManagement />;
+      case 'teachers':
+        return <TeacherManagement />;
       case 'attendance':
         return <AttendanceManagement />;
       case 'timetable':
