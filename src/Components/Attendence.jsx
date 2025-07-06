@@ -16,7 +16,6 @@ const AttendanceManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
 
-  // Form states
   const [newAttendance, setNewAttendance] = useState({
     studentId: '',
     className: '',
@@ -24,7 +23,6 @@ const AttendanceManagement = () => {
     date: new Date().toISOString().split('T')[0]
   });
 
-  // Fetch overview data
   const fetchAttendanceOverview = useCallback(async () => {
     setLoading(true);
     try {
@@ -39,7 +37,6 @@ const AttendanceManagement = () => {
     }
   }, [selectedDate]);
 
-  // Fetch detailed records
   const fetchAttendanceRecords = useCallback(async () => {
     setLoading(true);
     try {
@@ -58,7 +55,6 @@ const AttendanceManagement = () => {
     }
   }, [selectedDate, selectedClass]);
 
-  // Fetch statistics
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
@@ -80,14 +76,12 @@ const AttendanceManagement = () => {
     }
   }, [selectedDate, selectedClass]);
 
-  // Fetch students for dropdown
   const fetchStudents = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/students`);
       const data = await response.json();
       setStudents(data);
       
-      // Extract unique classes from students
       const uniqueClasses = [...new Set(data.map(student => student.class).filter(Boolean))];
       setClasses(uniqueClasses);
     } catch (err) {
@@ -95,7 +89,6 @@ const AttendanceManagement = () => {
     }
   }, []);
 
-  // Mark single attendance
   const markAttendance = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -129,7 +122,6 @@ const AttendanceManagement = () => {
     }
   };
 
-  // Prepare bulk attendance for selected class
   const prepareBulkAttendance = async () => {
     if (!selectedClass) {
       setError('Please select a class first');
@@ -153,7 +145,6 @@ const AttendanceManagement = () => {
     }
   };
 
-  // Mark bulk attendance
   const markBulkAttendance = async () => {
     if (bulkAttendance.length === 0) return;
     
@@ -183,7 +174,6 @@ const AttendanceManagement = () => {
     }
   };
 
-  // Update attendance
   const updateAttendance = async (id, updatedData) => {
     setLoading(true);
     try {
@@ -210,7 +200,6 @@ const AttendanceManagement = () => {
     }
   };
 
-  // Delete attendance
   const deleteAttendance = async (id) => {
     if (!confirm('Are you sure you want to delete this attendance record?')) return;
     
@@ -235,7 +224,6 @@ const AttendanceManagement = () => {
     }
   };
 
-  // Handle search input change
   const handleSearchChange = (e) => {
     const query = e.target.value;
     setSearchQuery(query);
@@ -247,7 +235,6 @@ const AttendanceManagement = () => {
     }
   };
 
-  // Search students
   const searchStudents = async (query) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -308,7 +295,6 @@ const AttendanceManagement = () => {
         </div>
       )}
 
-      {/* Tab Navigation */}
       <div className="flex space-x-1 mb-6">
         {['overview', 'records', 'mark', 'bulk', 'search', 'stats'].map(tab => (
           <button
@@ -331,7 +317,6 @@ const AttendanceManagement = () => {
         </div>
       )}
 
-      {/* Overview Tab */}
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {attendance.map((record, index) => (
@@ -352,7 +337,6 @@ const AttendanceManagement = () => {
         </div>
       )}
 
-      {/* Records Tab */}
       {activeTab === 'records' && (
         <div className="overflow-x-auto">
           <table className="min-w-full table-auto">
@@ -410,7 +394,6 @@ const AttendanceManagement = () => {
         </div>
       )}
 
-      {/* Mark Attendance Tab */}
       {activeTab === 'mark' && (
         <form onSubmit={markAttendance} className="max-w-md">
           <div className="mb-4">
@@ -492,7 +475,6 @@ const AttendanceManagement = () => {
         </form>
       )}
 
-      {/* Bulk Attendance Tab */}
       {activeTab === 'bulk' && (
         <div>
           <div className="mb-4">
@@ -550,7 +532,6 @@ const AttendanceManagement = () => {
         </div>
       )}
 
-      {/* Search Tab */}
       {activeTab === 'search' && (
         <div>
           <div className="mb-6">
@@ -609,7 +590,6 @@ const AttendanceManagement = () => {
         </div>
       )}
 
-      {/* Statistics Tab */}
       {activeTab === 'stats' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {stats.map((stat, index) => (
