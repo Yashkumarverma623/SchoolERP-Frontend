@@ -219,7 +219,6 @@ const ExamManagement = () => {
     return 'F';
   };
 
-  // Auto-calculate grade when marks are entered
   useEffect(() => {
     if (resultForm.marksObtained && resultForm.maxMarks) {
       const grade = calculateGrade(Number(resultForm.marksObtained), Number(resultForm.maxMarks));

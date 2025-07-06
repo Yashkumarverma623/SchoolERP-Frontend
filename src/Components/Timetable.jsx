@@ -57,7 +57,6 @@ const TimetableManagement = () => {
       if (viewMode === 'teacher') {
         setTimetable(data.timetable || []);
       } else if (viewMode === 'all') {
-        // Flatten the grouped data for display
         const flatData = [];
         Object.entries(data).forEach(([className, days]) => {
           Object.entries(days).forEach(([day, entries]) => {

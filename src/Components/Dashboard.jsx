@@ -1,4 +1,3 @@
-// Dashboard Component
 import { Users, Calendar, BookOpen, CreditCard, FileText, MessageSquare, PenTool, BarChart3, Bell, Menu, X } from 'lucide-react';
 import { useEffect, useState } from "react";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
