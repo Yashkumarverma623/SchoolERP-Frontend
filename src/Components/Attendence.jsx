@@ -1,5 +1,4 @@
-// Enhanced Attendance Management Component
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 const AttendanceManagement = () => {
@@ -14,6 +13,8 @@ const AttendanceManagement = () => {
   const [error, setError] = useState('');
   const [stats, setStats] = useState([]);
   const [bulkAttendance, setBulkAttendance] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
 
   // Form states
   const [newAttendance, setNewAttendance] = useState({
@@ -24,7 +25,7 @@ const AttendanceManagement = () => {
   });
 
   // Fetch overview data
-  const fetchAttendanceOverview = async () => {
+  const fetchAttendanceOverview = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/attendance?date=${selectedDate}`);
@@ -36,10 +37,10 @@ const AttendanceManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDate]);
 
   // Fetch detailed records
-  const fetchAttendanceRecords = async () => {
+  const fetchAttendanceRecords = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -55,10 +56,10 @@ const AttendanceManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDate, selectedClass]);
 
   // Fetch statistics
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -77,22 +78,22 @@ const AttendanceManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDate, selectedClass]);
 
   // Fetch students for dropdown
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/students`);
       const data = await response.json();
       setStudents(data);
       
       // Extract unique classes from students
-      const uniqueClasses = [...new Set(data.map(student => student.class))];
+      const uniqueClasses = [...new Set(data.map(student => student.class).filter(Boolean))];
       setClasses(uniqueClasses);
     } catch (err) {
       console.error('Error fetching students:', err);
     }
-  };
+  }, []);
 
   // Mark single attendance
   const markAttendance = async (e) => {
@@ -125,6 +126,30 @@ const AttendanceManagement = () => {
       console.error('Error marking attendance:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Prepare bulk attendance for selected class
+  const prepareBulkAttendance = async () => {
+    if (!selectedClass) {
+      setError('Please select a class first');
+      return;
+    }
+    
+    try {
+      const bulkRecords = students
+        .filter(student => student.class === selectedClass)
+        .map(student => ({
+          studentId: student._id,
+          className: selectedClass,
+          status: 'present',
+          date: selectedDate
+        }));
+      setBulkAttendance(bulkRecords);
+      setError('');
+    } catch (err) {
+      setError('Error preparing bulk attendance');
+      console.error('Error preparing bulk attendance:', err);
     }
   };
 
@@ -210,23 +235,38 @@ const AttendanceManagement = () => {
     }
   };
 
-  // Prepare bulk attendance for selected class
-  const prepareBulkAttendance = () => {
-    if (!selectedClass) return;
+  // Handle search input change
+  const handleSearchChange = (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
     
-    const classStudents = students.filter(student => student.class === selectedClass);
-    const bulkData = classStudents.map(student => ({
-      studentId: student._id,
-      className: selectedClass,
-      status: 'present',
-      date: selectedDate
-    }));
-    setBulkAttendance(bulkData);
+    if (query.length > 2) {
+      searchStudents(query);
+    } else {
+      setSearchResults([]);
+    }
+  };
+
+  // Search students
+  const searchStudents = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/students/search/${encodeURIComponent(query)}`);
+      const data = await response.json();
+      setSearchResults(data);
+    } catch (err) {
+      console.error('Error searching students:', err);
+      setSearchResults([]);
+    }
   };
 
   useEffect(() => {
     fetchStudents();
-  }, []);
+  }, [fetchStudents]);
 
   useEffect(() => {
     if (activeTab === 'overview') {
@@ -236,7 +276,7 @@ const AttendanceManagement = () => {
     } else if (activeTab === 'stats') {
       fetchStats();
     }
-  }, [selectedDate, selectedClass, activeTab]);
+  }, [selectedDate, selectedClass, activeTab, fetchAttendanceOverview, fetchAttendanceRecords, fetchStats]);
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
@@ -270,7 +310,7 @@ const AttendanceManagement = () => {
 
       {/* Tab Navigation */}
       <div className="flex space-x-1 mb-6">
-        {['overview', 'records', 'mark', 'bulk', 'stats'].map(tab => (
+        {['overview', 'records', 'mark', 'bulk', 'search', 'stats'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -328,9 +368,11 @@ const AttendanceManagement = () => {
             <tbody>
               {attendanceRecords.map((record) => (
                 <tr key={record._id} className="border-b">
-                  <td className="px-4 py-2">
+                <td className="px-4 py-2">
                     {record.studentData ? 
-                      `${record.studentData.firstName} ${record.studentData.lastName}` : 
+                      record.studentData.name || 
+                      `${record.studentData.firstName || ''} ${record.studentData.lastName || ''}`.trim() || 
+                      'Unknown Student' : 
                       'Unknown Student'
                     }
                   </td>
@@ -373,6 +415,26 @@ const AttendanceManagement = () => {
         <form onSubmit={markAttendance} className="max-w-md">
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
+              Class
+            </label>
+            <select
+              value={newAttendance.className}
+              onChange={(e) => {
+                const selectedClass = e.target.value;
+                setNewAttendance({...newAttendance, className: selectedClass, studentId: ''});
+              }}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+              required
+            >
+              <option value="">Select Class</option>
+              {classes.map(cls => (
+                <option key={cls} value={cls}>{cls}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Student
             </label>
             <select
@@ -382,27 +444,13 @@ const AttendanceManagement = () => {
               required
             >
               <option value="">Select Student</option>
-              {students.map(student => (
+              {students
+                .filter(student => !newAttendance.className || student.class === newAttendance.className)
+                .map(student => (
                 <option key={student._id} value={student._id}>
-                  {student.firstName} {student.lastName} - {student.class}
+                  {student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim()} 
+                  {student.rollNo ? ` (${student.rollNo})` : ''}
                 </option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Class
-            </label>
-            <select
-              value={newAttendance.className}
-              onChange={(e) => setNewAttendance({...newAttendance, className: e.target.value})}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2"
-              required
-            >
-              <option value="">Select Class</option>
-              {classes.map(cls => (
-                <option key={cls} value={cls}>{cls}</option>
               ))}
             </select>
           </div>
@@ -465,7 +513,15 @@ const AttendanceManagement = () => {
                   const student = students.find(s => s._id === record.studentId);
                   return (
                     <div key={index} className="flex items-center justify-between p-2 border-b">
-                      <span>{student ? `${student.firstName} ${student.lastName}` : 'Unknown'}</span>
+                      <span>
+                        {student ? 
+                          student.name || 
+                          `${student.firstName || ''} ${student.lastName || ''}`.trim() || 
+                          'Unknown Student' : 
+                          'Unknown Student'
+                        }
+                        {student && student.rollNo && ` (${student.rollNo})`}
+                      </span>
                       <select
                         value={record.status}
                         onChange={(e) => {
@@ -489,6 +545,65 @@ const AttendanceManagement = () => {
               >
                 {loading ? 'Marking...' : 'Mark Bulk Attendance'}
               </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Search Tab */}
+      {activeTab === 'search' && (
+        <div>
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Search Students
+            </label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              placeholder="Search by name, roll number, or email..."
+              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+            />
+          </div>
+          
+          {searchResults.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {searchResults.map(student => (
+                <div key={student._id} className="border rounded-lg p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-medium">
+                      {student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim()}
+                    </h4>
+                    <span className="text-sm text-gray-500">{student.class}</span>
+                  </div>
+                  {student.rollNo && (
+                    <p className="text-sm text-gray-600 mb-1">Roll: {student.rollNo}</p>
+                  )}
+                  {student.email && (
+                    <p className="text-sm text-gray-600 mb-3">{student.email}</p>
+                  )}
+                  <button
+                    onClick={() => {
+                      setNewAttendance({
+                        studentId: student._id,
+                        className: student.class,
+                        status: 'present',
+                        date: selectedDate
+                      });
+                      setActiveTab('mark');
+                    }}
+                    className="w-full bg-blue-500 text-white py-1 px-3 rounded text-sm hover:bg-blue-600"
+                  >
+                    Mark Attendance
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {searchQuery.length > 2 && searchResults.length === 0 && !loading && (
+            <div className="text-center py-8 text-gray-500">
+              No students found matching your search.
             </div>
           )}
         </div>
