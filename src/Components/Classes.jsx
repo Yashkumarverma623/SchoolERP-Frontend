@@ -79,7 +79,7 @@ const ClassManagementSystem = () => {
 
   useEffect(() => {
     fetchClasses();
-  }, );
+  }, []);
 
   useEffect(() => {
     let filtered = classes;
