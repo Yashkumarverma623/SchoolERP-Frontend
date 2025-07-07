@@ -10,7 +10,7 @@ const ClassManagementSystem = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterGrade, setFilterGrade] = useState('');
   const [filterSection, setFilterSection] = useState('');
-  const [currentView, setCurrentView] = useState('list'); // 'list', 'create', 'edit', 'view'
+  const [currentView, setCurrentView] = useState('list'); 
   const [selectedClass, setSelectedClass] = useState(null);
   const [classStudents, setClassStudents] = useState([]);
   const [classTimetable, setClassTimetable] = useState([]);
@@ -29,7 +29,6 @@ const ClassManagementSystem = () => {
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-  // Fetch all classes
   const fetchClasses = async () => {
     setLoading(true);
     try {
@@ -45,7 +44,6 @@ const ClassManagementSystem = () => {
     }
   };
 
-  // Fetch class students
   const fetchClassStudents = async (classId) => {
     try {
       const response = await fetch(`${API_BASE_URL}/classes/${classId}/students`);
@@ -57,7 +55,6 @@ const ClassManagementSystem = () => {
     }
   };
 
-  // Fetch class timetable
   const fetchClassTimetable = async (classId) => {
     try {
       const response = await fetch(`${API_BASE_URL}/classes/${classId}/timetable`);
@@ -69,7 +66,6 @@ const ClassManagementSystem = () => {
     }
   };
 
-  // Fetch class stats
   const fetchClassStats = async (classId) => {
     try {
       const response = await fetch(`${API_BASE_URL}/classes/${classId}/stats`);
@@ -85,7 +81,6 @@ const ClassManagementSystem = () => {
     fetchClasses();
   }, );
 
-  // Filter classes based on search and filters
   useEffect(() => {
     let filtered = classes;
 
@@ -260,7 +255,6 @@ const ClassManagementSystem = () => {
     return [...new Set(classes.map(cls => cls.section))].sort();
   };
 
-  // List View Component
   const ListView = () => (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -274,7 +268,6 @@ const ClassManagementSystem = () => {
         </button>
       </div>
 
-      {/* Search and Filter */}
       <div className="bg-white p-6 rounded-lg shadow-md">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative">
@@ -310,7 +303,6 @@ const ClassManagementSystem = () => {
         </div>
       </div>
 
-      {/* Classes Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredClasses.map(classData => (
           <div key={classData._id} className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
@@ -371,7 +363,6 @@ const ClassManagementSystem = () => {
     </div>
   );
 
-  // Form Component (for Create/Edit)
   const FormView = () => (
     <div className="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md">
       <div className="flex items-center justify-between mb-6">
@@ -538,7 +529,6 @@ const ClassManagementSystem = () => {
     </div>
   );
 
-  // View Details Component
   const DetailView = () => (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -551,7 +541,6 @@ const ClassManagementSystem = () => {
         </button>
       </div>
 
-      {/* Class Info */}
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h3 className="text-xl font-semibold text-gray-800 mb-4">{selectedClass.name}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -569,7 +558,6 @@ const ClassManagementSystem = () => {
         )}
       </div>
 
-      {/* Stats */}
       {classStats && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-blue-50 p-4 rounded-lg">
@@ -596,7 +584,6 @@ const ClassManagementSystem = () => {
         </div>
       )}
 
-      {/* Students */}
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
           <Users size={20} />
@@ -617,7 +604,6 @@ const ClassManagementSystem = () => {
         )}
       </div>
 
-      {/* Timetable */}
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
           <Calendar size={20} />
@@ -644,7 +630,6 @@ const ClassManagementSystem = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      {/* Error/Success Messages */}
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
           <AlertCircle size={20} />
@@ -659,17 +644,12 @@ const ClassManagementSystem = () => {
         </div>
       )}
 
-      {/* Loading Spinner */}
       {loading && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading...</p>
-          </div>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       )}
 
-      {/* Render Current View */}
       {currentView === 'list' && <ListView />}
       {(currentView === 'create' || currentView === 'edit') && <FormView />}
       {currentView === 'view' && <DetailView />}
