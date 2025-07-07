@@ -13,6 +13,7 @@ const TimetableManagement = lazy(() => import('./Timetable.jsx'));
 const FeeManagement = lazy(() => import('./Fees.jsx'));
 const NoticeBoard = lazy(() => import('./NoticeBoard.jsx'));
 const ExamManagement = lazy(() => import('./Exams.jsx'));
+const Classes = lazy(() => import('./Classes.jsx'));
 
 
 const ERP = () => {
@@ -28,6 +29,7 @@ const ERP = () => {
     { id: 'fees', label: 'Fee Management', icon: CreditCard },
     { id: 'notices', label: 'Notice Board', icon: Bell },
     { id: 'exams', label: 'Exams', icon: PenTool },
+    { id: 'classes', label: 'Classes', icon: FileText }
   ];
 
   const renderContent = () => {
@@ -48,6 +50,8 @@ const ERP = () => {
         return <NoticeBoard />;
       case 'exams':
         return <ExamManagement />;
+      case 'classes':
+        return <Classes />;
       default:
         return <Dashboard />;
     }
