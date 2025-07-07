@@ -168,7 +168,6 @@ const handleStatusToggle = async (feeId, currentStatus) => {
   try {
     const newStatus = currentStatus === 'paid' ? 'pending' : 'paid';
     
-    // Find the current fee to get all its data
     const currentFee = fees.find(fee => fee._id === feeId);
     if (!currentFee) {
       throw new Error('Fee not found in local state');
@@ -176,7 +175,6 @@ const handleStatusToggle = async (feeId, currentStatus) => {
     
     console.log('Updating fee status:', feeId, 'from', currentStatus, 'to', newStatus);
     
-    // Use PUT method with all required fields
     const response = await fetch(`${API_BASE_URL}/fees/${feeId}`, {
       method: 'PUT',
       headers: {
@@ -190,10 +188,9 @@ const handleStatusToggle = async (feeId, currentStatus) => {
         description: currentFee.description || '',
         feeType: currentFee.feeType || 'tuition',
         status: newStatus,
-        // Add payment-related fields when marking as paid
         ...(newStatus === 'paid' && {
           paidDate: new Date().toISOString(),
-          paymentMethod: 'manual', // or you can make this configurable
+          paymentMethod: 'manual', 
           paidAmount: currentFee.amount
         })
       }),
@@ -203,7 +200,6 @@ const handleStatusToggle = async (feeId, currentStatus) => {
       const errorText = await response.text();
       console.error('Server error:', errorText);
       
-      // Try to parse as JSON, fallback to text
       let errorData;
       try {
         errorData = JSON.parse(errorText);
@@ -217,7 +213,6 @@ const handleStatusToggle = async (feeId, currentStatus) => {
     const updatedFee = await response.json();
     console.log('Updated fee:', updatedFee);
     
-    // Update local state immediately for better UX
     setFees(prevFees => 
       prevFees.map(fee => 
         fee._id === feeId 
@@ -226,7 +221,6 @@ const handleStatusToggle = async (feeId, currentStatus) => {
       )
     );
     
-    // Refresh stats
     await fetchStats();
     
   } catch (err) {
