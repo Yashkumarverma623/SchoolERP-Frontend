@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Plus, Search, Filter, DollarSign, Calendar, Users, AlertCircle, Check, X, Edit, Trash2, Receipt } from "lucide-react";
+import { Plus, Search, Filter, DollarSign, Calendar, Users, AlertCircle, Check, X, Edit, Trash2, Receipt, RefreshCw } from "lucide-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:1573';
 
 const FeeManagement = () => {
   const [fees, setFees] = useState([]);
   const [filteredFees, setFilteredFees] = useState([]);
+  const [students, setStudents] = useState([]);
   const [stats, setStats] = useState({
     totalFees: 0,
     totalAmount: 0,
@@ -23,7 +24,6 @@ const FeeManagement = () => {
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedFee, setSelectedFee] = useState(null);
   
   const [formData, setFormData] = useState({
@@ -34,22 +34,28 @@ const FeeManagement = () => {
     description: '',
     feeType: 'tuition'
   });
-  
-  const [paymentData, setPaymentData] = useState({
-    paymentMethod: 'cash',
-    transactionId: '',
-    paidAmount: ''
-  });
 
   useEffect(() => {
     fetchFees();
     fetchStats();
+    fetchStudents();
   }, []);
-
 
   useEffect(() => {
     applyFilters();
   }, [fees, filters]); 
+
+  const fetchStudents = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/students`);
+      if (!response.ok) throw new Error('Failed to fetch students');
+      const data = await response.json();
+      setStudents(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error fetching students:', err);
+      setStudents([]);
+    }
+  };
 
   const fetchFees = async () => {
     try {
@@ -100,7 +106,7 @@ const FeeManagement = () => {
     if (filters.studentId) {
       filtered = filtered.filter(fee => 
         (fee.studentData?.name && fee.studentData.name.toLowerCase().includes(filters.studentId.toLowerCase())) ||
-        (fee.studentData?.rollNumber && fee.studentData.rollNumber.toLowerCase().includes(filters.studentId.toLowerCase()))
+        (fee.studentData?.rollNo && fee.studentData.rollNo.toLowerCase().includes(filters.studentId.toLowerCase()))
       );
     }
     
@@ -115,10 +121,16 @@ const FeeManagement = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          amount: parseFloat(formData.amount)
+        }),
       });
       
-      if (!response.ok) throw new Error('Failed to add fee');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add fee');
+      }
       
       await fetchFees();
       await fetchStats();
@@ -152,31 +164,76 @@ const FeeManagement = () => {
     }
   };
 
-  const handlePayment = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(`${API_BASE_URL}/fees/${selectedFee._id}/pay`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...paymentData,
-          paidAmount: paymentData.paidAmount || selectedFee.amount
-        }),
-      });
-      
-      if (!response.ok) throw new Error('Failed to process payment');
-      
-      await fetchFees();
-      await fetchStats();
-      setShowPaymentModal(false);
-      setSelectedFee(null);
-      setPaymentData({ paymentMethod: 'cash', transactionId: '', paidAmount: '' });
-    } catch (err) {
-      setError(err.message);
+const handleStatusToggle = async (feeId, currentStatus) => {
+  try {
+    const newStatus = currentStatus === 'paid' ? 'pending' : 'paid';
+    
+    // Find the current fee to get all its data
+    const currentFee = fees.find(fee => fee._id === feeId);
+    if (!currentFee) {
+      throw new Error('Fee not found in local state');
     }
-  };
+    
+    console.log('Updating fee status:', feeId, 'from', currentStatus, 'to', newStatus);
+    
+    // Use PUT method with all required fields
+    const response = await fetch(`${API_BASE_URL}/fees/${feeId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        studentId: currentFee.studentId,
+        amount: currentFee.amount,
+        dueDate: currentFee.dueDate,
+        className: currentFee.className,
+        description: currentFee.description || '',
+        feeType: currentFee.feeType || 'tuition',
+        status: newStatus,
+        // Add payment-related fields when marking as paid
+        ...(newStatus === 'paid' && {
+          paidDate: new Date().toISOString(),
+          paymentMethod: 'manual', // or you can make this configurable
+          paidAmount: currentFee.amount
+        })
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Server error:', errorText);
+      
+      // Try to parse as JSON, fallback to text
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { error: errorText };
+      }
+      
+      throw new Error(errorData.error || errorData.message || 'Failed to update status');
+    }
+    
+    const updatedFee = await response.json();
+    console.log('Updated fee:', updatedFee);
+    
+    // Update local state immediately for better UX
+    setFees(prevFees => 
+      prevFees.map(fee => 
+        fee._id === feeId 
+          ? { ...fee, ...updatedFee }
+          : fee
+      )
+    );
+    
+    // Refresh stats
+    await fetchStats();
+    
+  } catch (err) {
+    console.error('Error updating status:', err);
+    setError(err.message);
+  }
+};
 
   const handleDeleteFee = async (feeId) => {
     if (!window.confirm('Are you sure you want to delete this fee record?')) return;
@@ -206,6 +263,15 @@ const FeeManagement = () => {
     });
   };
 
+  const handleStudentSelect = (studentId) => {
+    const selectedStudent = students.find(student => student._id === studentId);
+    setFormData({
+      ...formData, 
+      studentId: studentId,
+      className: selectedStudent ? selectedStudent.class : ''
+    });
+  };
+
   const openEditModal = (fee) => {
     setSelectedFee(fee);
     setFormData({
@@ -217,16 +283,6 @@ const FeeManagement = () => {
       feeType: fee.feeType || 'tuition'
     });
     setShowEditModal(true);
-  };
-
-  const openPaymentModal = (fee) => {
-    setSelectedFee(fee);
-    setPaymentData({
-      paymentMethod: 'cash',
-      transactionId: '',
-      paidAmount: fee.amount ? fee.amount.toString() : ''
-    });
-    setShowPaymentModal(true);
   };
 
   const formatDate = (dateString) => {
@@ -381,7 +437,7 @@ const FeeManagement = () => {
                   <td className="px-4 py-3 text-sm text-gray-900">
                     <div>
                       <div className="font-medium">{fee.studentData?.name || 'N/A'}</div>
-                      <div className="text-gray-500">{fee.studentData?.rollNumber || 'N/A'}</div>
+                      <div className="text-gray-500">{fee.studentData?.rollNo || 'N/A'}</div>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900">{fee.className || 'N/A'}</td>
@@ -407,15 +463,13 @@ const FeeManagement = () => {
                   </td>
                   <td className="px-4 py-3 text-sm">
                     <div className="flex items-center gap-2">
-                      {fee.status === 'pending' && (
-                        <button 
-                          onClick={() => openPaymentModal(fee)}
-                          className="text-green-600 hover:text-green-800 flex items-center gap-1"
-                        >
-                          <DollarSign className="h-4 w-4" />
-                          Pay
-                        </button>
-                      )}
+                      <button 
+                        onClick={() => handleStatusToggle(fee._id, fee.status)}
+                        className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        {fee.status === 'paid' ? 'Mark Pending' : 'Mark Paid'}
+                      </button>
                       <button 
                         onClick={() => openEditModal(fee)}
                         className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
@@ -430,12 +484,6 @@ const FeeManagement = () => {
                         <Trash2 className="h-4 w-4" />
                         Delete
                       </button>
-                      {fee.status === 'paid' && (
-                        <button className="text-purple-600 hover:text-purple-800 flex items-center gap-1">
-                          <Receipt className="h-4 w-4" />
-                          Receipt
-                        </button>
-                      )}
                     </div>
                   </td>
                 </tr>
@@ -457,14 +505,20 @@ const FeeManagement = () => {
             <h3 className="text-lg font-semibold mb-4">Add New Fee</h3>
             <form onSubmit={handleAddFee} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Student ID</label>
-                <input
-                  type="text"
+                <label className="block text-sm font-medium text-gray-700 mb-1">Student</label>
+                <select
                   required
                   value={formData.studentId}
-                  onChange={(e) => setFormData({...formData, studentId: e.target.value})}
+                  onChange={(e) => handleStudentSelect(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                />
+                >
+                  <option value="">Select a student</option>
+                  {students.map((student) => (
+                    <option key={student._id} value={student._id}>
+                      {student.name} ({student.rollNo}) - Class {student.class}
+                    </option>
+                  ))}
+                </select>
               </div>
               
               <div>
@@ -474,7 +528,9 @@ const FeeManagement = () => {
                   required
                   value={formData.className}
                   onChange={(e) => setFormData({...formData, className: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50"
+                  disabled={!!formData.studentId}
+                  placeholder={formData.studentId ? "Auto-filled from student" : "Enter class"}
                 />
               </div>
               
@@ -554,14 +610,20 @@ const FeeManagement = () => {
             <h3 className="text-lg font-semibold mb-4">Edit Fee</h3>
             <form onSubmit={handleEditFee} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Student ID</label>
-                <input
-                  type="text"
+                <label className="block text-sm font-medium text-gray-700 mb-1">Student</label>
+                <select
                   required
                   value={formData.studentId}
                   onChange={(e) => setFormData({...formData, studentId: e.target.value})}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                />
+                >
+                  <option value="">Select a student</option>
+                  {students.map((student) => (
+                    <option key={student._id} value={student._id}>
+                      {student.name} ({student.rollNo}) - Class {student.class}
+                    </option>
+                  ))}
+                </select>
               </div>
               
               <div>
@@ -635,76 +697,6 @@ const FeeManagement = () => {
                     setShowEditModal(false);
                     setSelectedFee(null);
                     resetForm();
-                  }}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showPaymentModal && selectedFee && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Process Payment</h3>
-            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600">Student: {selectedFee.studentData?.name || 'N/A'}</p>
-              <p className="text-sm text-gray-600">Amount Due: ₹{selectedFee.amount ? selectedFee.amount.toLocaleString() : 'N/A'}</p>
-            </div>
-            
-            <form onSubmit={handlePayment} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
-                <select
-                  value={paymentData.paymentMethod}
-                  onChange={(e) => setPaymentData({...paymentData, paymentMethod: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                >
-                  <option value="cash">Cash</option>
-                  <option value="card">Card</option>
-                  <option value="upi">UPI</option>
-                  <option value="netbanking">Net Banking</option>
-                  <option value="cheque">Cheque</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Transaction ID</label>
-                <input
-                  type="text"
-                  value={paymentData.transactionId}
-                  onChange={(e) => setPaymentData({...paymentData, transactionId: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  placeholder="Enter transaction ID (optional)"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Paid Amount</label>
-                <input
-                  type="number"
-                  value={paymentData.paidAmount}
-                  onChange={(e) => setPaymentData({...paymentData, paidAmount: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                />
-              </div>
-              
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700"
-                >
-                  Process Payment
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPaymentModal(false);
-                    setSelectedFee(null);
-                    setPaymentData({ paymentMethod: 'cash', transactionId: '', paidAmount: '' });
                   }}
                   className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
                 >
